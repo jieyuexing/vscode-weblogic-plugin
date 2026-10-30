@@ -218,7 +218,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     const javaHome = this.javaHome();
     const username = await this.input("Administration username", "weblogic");
     if (!username) return;
-    const password = await this.input("Administration password", "", true);
+    const password = await this.input("Administration password", "welcome1", true);
     if (password === undefined) return;
     const name = await this.input("Server name", path.basename(domainPath));
     if (!name) return;
@@ -272,7 +272,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     const javaHome = this.javaHome();
     const username = await this.input("Administration username", "weblogic");
     if (!username) return;
-    const password = await this.input("Administration password", "", true);
+    const password = await this.input("Administration password", "welcome1", true);
     if (password === undefined) return;
     const portString = await vscode.window.showInputBox({
       prompt: t("Administration port"),

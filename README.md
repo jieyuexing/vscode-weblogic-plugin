@@ -5,7 +5,7 @@
 需要 VS Code 1.85 或兼容扩展 API 的编辑器、WebLogic 安装及其支持的 JDK。调试需要已安装且可工作的 Java 调试扩展。新建域使用安装自带的 `wlserver/common/templates/wls/wls.jar`。
 
 1. 在设置中填写 `weblogic.javaHome`；留空时使用启动编辑器的 `JAVA_HOME`。
-2. 在底部「服务器」视图选择「登记已有域」，选择例如 `/opt/domains/demo_domain`，确认 Oracle Home，并输入管理用户名和口令。
+2. 在底部「服务器」视图选择「登记已有域」，选择例如 `/opt/domains/demo_domain`，确认 Oracle Home，并输入管理用户名和口令（默认按 WebLogic 开发约定预填 `weblogic`／`welcome1`，可改）。
 3. 选择服务器后使用工具栏或右键菜单启动、停止或以调试方式启动。`BEA-000360` 与监听端口共同确认启动完成，之后自动请求 Java 调试器 attach。
 4. 「新建域」需要尚不存在的绝对目录、Oracle Home、用户名、口令和管理端口，完成后自动登记。该域采用开发模式。
 
