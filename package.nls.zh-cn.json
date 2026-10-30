@@ -1,0 +1,17 @@
+{
+  "displayName": "WebLogic Server",
+  "description": "登记、新建、启动和调试本地 WebLogic 开发域。",
+  "servers": "服务器",
+  "javaHome": "WebLogic 与 WLST 使用的 JDK 目录，缺省使用 JAVA_HOME。",
+  "debugPort": "WebLogic 的 DEBUG_PORT，原样传入，WebLogic 默认为 8453。",
+  "command.register": "登记已有域",
+  "command.create": "新建域",
+  "command.start": "启动",
+  "command.debug": "以调试方式启动",
+  "command.stop": "停止",
+  "command.restart": "重新启动",
+  "command.console": "打开管理控制台",
+  "command.log": "显示日志",
+  "command.remove": "移除",
+  "welcome": "[登记已有域](command:weblogic.register)\n[新建域](command:weblogic.create)"
+}

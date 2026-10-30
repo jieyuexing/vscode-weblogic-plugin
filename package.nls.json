@@ -1,0 +1,17 @@
+{
+  "displayName": "WebLogic Server",
+  "description": "Register, create, start and debug local WebLogic development domains.",
+  "servers": "Servers",
+  "javaHome": "JDK home used by WebLogic and WLST. Falls back to JAVA_HOME.",
+  "debugPort": "WebLogic DEBUG_PORT value, passed unchanged. WebLogic defaults to 8453.",
+  "command.register": "Register Existing Domain",
+  "command.create": "Create Domain",
+  "command.start": "Start",
+  "command.debug": "Start in Debug Mode",
+  "command.stop": "Stop",
+  "command.restart": "Restart",
+  "command.console": "Open Administration Console",
+  "command.log": "Show Log",
+  "command.remove": "Remove",
+  "welcome": "[Register Existing Domain](command:weblogic.register)\n[Create Domain](command:weblogic.create)"
+}

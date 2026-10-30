@@ -1,0 +1,224 @@
+{
+  "name": "weblogic",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "jieyuexing",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:weblogic.servers"
+  ],
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src test scripts",
+    "build": "node scripts/build.mjs",
+    "test": "node --import tsx --test test/*.test.ts",
+    "vsce:package": "vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.6.2",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "prettier": "3.6.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "weblogic.register",
+        "title": "%command.register%",
+        "category": "WebLogic",
+        "icon": "$(add)"
+      },
+      {
+        "command": "weblogic.create",
+        "title": "%command.create%",
+        "category": "WebLogic",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "weblogic.start",
+        "title": "%command.start%",
+        "category": "WebLogic",
+        "icon": "$(play)"
+      },
+      {
+        "command": "weblogic.debug",
+        "title": "%command.debug%",
+        "category": "WebLogic",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "weblogic.stop",
+        "title": "%command.stop%",
+        "category": "WebLogic",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "weblogic.restart",
+        "title": "%command.restart%",
+        "category": "WebLogic",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "weblogic.console",
+        "title": "%command.console%",
+        "category": "WebLogic",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "weblogic.log",
+        "title": "%command.log%",
+        "category": "WebLogic",
+        "icon": "$(output)"
+      },
+      {
+        "command": "weblogic.remove",
+        "title": "%command.remove%",
+        "category": "WebLogic",
+        "icon": "$(trash)"
+      }
+    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "weblogic",
+          "title": "%servers%",
+          "icon": "resources/server.svg"
+        }
+      ]
+    },
+    "views": {
+      "weblogic": [
+        {
+          "id": "weblogic.servers",
+          "name": "%servers%",
+          "contextualTitle": "WebLogic Server"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "weblogic.servers",
+        "contents": "%welcome%"
+      }
+    ],
+    "configuration": {
+      "title": "WebLogic",
+      "properties": {
+        "weblogic.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "%javaHome%"
+        },
+        "weblogic.debugPort": {
+          "type": [
+            "string",
+            "number"
+          ],
+          "default": "8453",
+          "description": "%debugPort%"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "weblogic.register",
+          "when": "view == weblogic.servers",
+          "group": "navigation@0"
+        },
+        {
+          "command": "weblogic.create",
+          "when": "view == weblogic.servers",
+          "group": "navigation@1"
+        },
+        {
+          "command": "weblogic.start",
+          "when": "view == weblogic.servers",
+          "group": "navigation@2"
+        },
+        {
+          "command": "weblogic.debug",
+          "when": "view == weblogic.servers",
+          "group": "navigation@3"
+        },
+        {
+          "command": "weblogic.stop",
+          "when": "view == weblogic.servers",
+          "group": "navigation@4"
+        },
+        {
+          "command": "weblogic.restart",
+          "when": "view == weblogic.servers",
+          "group": "navigation@5"
+        },
+        {
+          "command": "weblogic.console",
+          "when": "view == weblogic.servers",
+          "group": "navigation@6"
+        },
+        {
+          "command": "weblogic.log",
+          "when": "view == weblogic.servers",
+          "group": "navigation@7"
+        },
+        {
+          "command": "weblogic.remove",
+          "when": "view == weblogic.servers",
+          "group": "navigation@8"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "weblogic.start",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@2"
+        },
+        {
+          "command": "weblogic.debug",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@3"
+        },
+        {
+          "command": "weblogic.stop",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@4"
+        },
+        {
+          "command": "weblogic.restart",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@5"
+        },
+        {
+          "command": "weblogic.console",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@6"
+        },
+        {
+          "command": "weblogic.log",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@7"
+        },
+        {
+          "command": "weblogic.remove",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@8"
+        }
+      ]
+    }
+  }
+}
