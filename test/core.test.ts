@@ -8,6 +8,7 @@ import {
   serverState,
   adminUrl,
   applicationName,
+  newestEarFolder,
   Redactor,
   encodeProperties,
 } from "../src/core";
@@ -113,4 +114,15 @@ test("部署名取 EAR 文件名，拒绝非 EAR 与非法字符", () => {
   assert.equal(applicationName("C:\\work\\demo-1.0.EAR"), "demo-1.0");
   assert.throws(() => applicationName("/work/demo.war"));
   assert.throws(() => applicationName("/work/demo app.ear"));
+});
+test("首次部署默认目录取最近修改的 EAR 所在目录，没有 EAR 时为空", () => {
+  assert.equal(
+    newestEarFolder([
+      { path: "/ws/OldEAR/build/libs/Old.ear", mtime: 100 },
+      { path: "/ws/SimWebEAR/build/libs/SimWebEAR.ear", mtime: 300 },
+      { path: "/ws/Other/dist/Other.ear", mtime: 200 },
+    ]),
+    "/ws/SimWebEAR/build/libs",
+  );
+  assert.equal(newestEarFolder([]), undefined);
 });

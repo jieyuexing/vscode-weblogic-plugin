@@ -218,6 +218,16 @@ export function applicationName(file: string): string {
     throw Error("Select an .ear file whose name uses letters, digits, '.', '_' or '-'.");
   return name;
 }
+/** 最近修改的 EAR 所在目录；没有 EAR 时为 undefined。 */
+export function newestEarFolder(
+  files: { path: string; mtime: number }[],
+): string | undefined {
+  const newest = files.reduce<(typeof files)[number] | undefined>(
+    (best, f) => (!best || f.mtime > best.mtime ? f : best),
+    undefined,
+  );
+  return newest && path.dirname(newest.path);
+}
 export function adminUrl(d: Pick<Domain, "host" | "port">): string {
   return `http://${d.host.includes(":") ? `[${d.host}]` : d.host}:${d.port}/console`;
 }

@@ -10,6 +10,7 @@ import {
   serverState,
   adminUrl,
   applicationName,
+  newestEarFolder,
   State,
 } from "./core";
 import {
@@ -361,7 +362,6 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     r.tail = "";
     r.startedAt = Date.now();
     const generation = ++r.generation;
-    r.output.show(true);
     this.changed.fire(undefined);
     r.child = launch(command);
     const child = r.child;
@@ -383,12 +383,14 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       r.child = undefined;
       r.running = false;
       this.changed.fire(undefined);
-      if (failed)
+      if (failed) {
+        r.output.show(true);
         void vscode.window.showErrorMessage(
           t(
             "The startup process exited before RUNNING. See the server output.",
           ),
         );
+      }
     });
   }
   private async poll(): Promise<void> {
@@ -452,6 +454,8 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       name: `WebLogic: ${s.name}`,
       hostName: s.host,
       port,
+      // 不切到调试控制台，底部服务器视图保持可见。
+      internalConsoleOptions: "neverOpen",
     });
     if (!success)
       void vscode.window.showWarningMessage(
@@ -509,7 +513,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       throw Error(t("Server is not running."));
     let file = s.application;
     if (choose || !file) {
-      const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+      const defaultUri = file ? vscode.Uri.file(file) : await this.earFolder();
       file = (
         await vscode.window.showOpenDialog({
           title: t("Select EAR file"),
@@ -517,7 +521,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
           canSelectFolders: false,
           canSelectMany: false,
           filters: { EAR: ["ear"] },
-          defaultUri: file ? vscode.Uri.file(file) : folder,
+          defaultUri,
         })
       )?.[0].fsPath;
       if (!file) return;
@@ -526,7 +530,6 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     await fs.access(file).catch(() => {
       throw Error(`${t("EAR file not found:")} ${file}`);
     });
-    r.output.show(true);
     r.output.appendLine(`[WebLogic] ${t("Deploying")} ${name} ← ${file}`);
     await vscode.window.withProgress(
       {
@@ -540,6 +543,9 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
           adminName: s.adminName,
           appName: name,
           appPath: file,
+        }).catch((err) => {
+          r.output.show(true);
+          throw err;
         }),
     );
     r.output.appendLine(`[WebLogic] ${t("Deployed")} ${name}`);
@@ -548,6 +554,28 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       await this.save();
     }
     void vscode.window.showInformationMessage(`${t("Deployed")} ${name}`);
+  }
+  /** 首次部署定位到工作区内最近修改的 EAR 所在目录，没有 EAR 时用第一个工作区目录。 */
+  private async earFolder(): Promise<vscode.Uri | undefined> {
+    const files = await vscode.workspace.findFiles(
+      "**/*.ear",
+      "**/node_modules/**",
+      200,
+    );
+    const folder = newestEarFolder(
+      await Promise.all(
+        files.map(async (uri) => ({
+          path: uri.fsPath,
+          mtime: await fs.stat(uri.fsPath).then(
+            (s) => s.mtimeMs,
+            () => 0,
+          ),
+        })),
+      ),
+    );
+    return folder
+      ? vscode.Uri.file(folder)
+      : vscode.workspace.workspaceFolders?.[0]?.uri;
   }
   async restart(s: Server): Promise<void> {
     const debug = this.runtime(s).debug;
