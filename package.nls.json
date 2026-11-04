@@ -10,6 +10,8 @@
   "command.debug": "Start in Debug Mode",
   "command.stop": "Stop",
   "command.restart": "Restart",
+  "command.deploy": "Deploy EAR…",
+  "command.redeploy": "Redeploy",
   "command.console": "Open Administration Console",
   "command.log": "Show Log",
   "command.remove": "Remove",

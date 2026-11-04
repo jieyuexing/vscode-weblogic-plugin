@@ -2,7 +2,7 @@
   "name": "weblogic",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "jieyuexing",
   "license": "MIT",
   "engines": {
@@ -72,6 +72,18 @@
         "title": "%command.restart%",
         "category": "WebLogic",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "weblogic.deploy",
+        "title": "%command.deploy%",
+        "category": "WebLogic",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "weblogic.redeploy",
+        "title": "%command.redeploy%",
+        "category": "WebLogic",
+        "icon": "$(refresh)"
       },
       {
         "command": "weblogic.console",
@@ -167,19 +179,29 @@
           "group": "navigation@5"
         },
         {
-          "command": "weblogic.console",
+          "command": "weblogic.deploy",
           "when": "view == weblogic.servers",
           "group": "navigation@6"
         },
         {
-          "command": "weblogic.log",
+          "command": "weblogic.redeploy",
           "when": "view == weblogic.servers",
           "group": "navigation@7"
         },
         {
-          "command": "weblogic.remove",
+          "command": "weblogic.console",
           "when": "view == weblogic.servers",
           "group": "navigation@8"
+        },
+        {
+          "command": "weblogic.log",
+          "when": "view == weblogic.servers",
+          "group": "navigation@9"
+        },
+        {
+          "command": "weblogic.remove",
+          "when": "view == weblogic.servers",
+          "group": "navigation@10"
         }
       ],
       "view/item/context": [
@@ -204,19 +226,29 @@
           "group": "weblogic@5"
         },
         {
-          "command": "weblogic.console",
+          "command": "weblogic.deploy",
           "when": "view == weblogic.servers",
           "group": "weblogic@6"
         },
         {
-          "command": "weblogic.log",
+          "command": "weblogic.redeploy",
           "when": "view == weblogic.servers",
           "group": "weblogic@7"
         },
         {
-          "command": "weblogic.remove",
+          "command": "weblogic.console",
           "when": "view == weblogic.servers",
           "group": "weblogic@8"
+        },
+        {
+          "command": "weblogic.log",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@9"
+        },
+        {
+          "command": "weblogic.remove",
+          "when": "view == weblogic.servers",
+          "group": "weblogic@10"
         }
       ]
     }

@@ -10,6 +10,8 @@
   "command.debug": "以调试方式启动",
   "command.stop": "停止",
   "command.restart": "重新启动",
+  "command.deploy": "部署 EAR…",
+  "command.redeploy": "重新部署",
   "command.console": "打开管理控制台",
   "command.log": "显示日志",
   "command.remove": "移除",

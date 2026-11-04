@@ -7,6 +7,7 @@ import {
   wlstCommand,
   serverState,
   adminUrl,
+  applicationName,
   Redactor,
   encodeProperties,
 } from "../src/core";
@@ -106,4 +107,10 @@ test("私密 Properties 数据转义兼容旧版 WLST 和 Unicode", () => {
     encodeProperties({ password: "a=b\\c\n中文" }),
     "password=a\\=b\\\\c\\n\\u4e2d\\u6587\n",
   );
+});
+test("部署名取 EAR 文件名，拒绝非 EAR 与非法字符", () => {
+  assert.equal(applicationName("/work/SimWebEAR/build/libs/SimWebEAR.ear"), "SimWebEAR");
+  assert.equal(applicationName("C:\\work\\demo-1.0.EAR"), "demo-1.0");
+  assert.throws(() => applicationName("/work/demo.war"));
+  assert.throws(() => applicationName("/work/demo app.ear"));
 });

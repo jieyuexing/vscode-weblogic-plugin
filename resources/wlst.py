@@ -62,6 +62,22 @@ if action in ('credentials', 'create'):
     credentials = UsernameAndPassword(data['username'], String(data['password']).toCharArray())
     UserConfigFileManager.setUsernameAndPassword(credentials, data['userConfig'], data['userKey'], 'weblogic.management')
     credentials.dispose()
+if action == 'deploy':
+    from java.io import File as JFile
+    connect(userConfigFile=data['userConfig'], userKeyFile=data['userKey'], url=data['url'])
+    name = data['appName']
+    source = JFile(data['appPath']).getCanonicalPath()
+    existing = getMBean('/AppDeployments/' + name)
+    # 同一路径直接重新部署；路径变了先卸载再按新路径部署。
+    if existing is not None and JFile(existing.getAbsoluteSourcePath()).getCanonicalPath() == source:
+        progress = redeploy(name)
+    else:
+        if existing is not None:
+            undeploy(name)
+        progress = deploy(name, source, targets=data['adminName'])
+    if progress is not None and progress.isFailed():
+        raise Exception('Deployment failed: ' + name)
+    disconnect()
 if action in ('stop', 'refresh'):
     connect(userConfigFile=data['userConfig'], userKeyFile=data['userKey'], url=data['url'])
     if action == 'stop':

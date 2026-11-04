@@ -16,6 +16,7 @@ export interface Server extends Domain {
   domainPath: string;
   oracleHome: string;
   username: string;
+  application?: string;
 }
 export function probe(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {

@@ -9,6 +9,7 @@ import {
   startCommand,
   serverState,
   adminUrl,
+  applicationName,
   State,
 } from "./core";
 import {
@@ -64,7 +65,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     const item = new vscode.TreeItem(s.name);
     item.id = s.id;
     item.description = `${t(labels[r.state])} · ${s.host}:${s.port}`;
-    item.tooltip = `${s.domainPath}\n${t(labels[r.state])}\n${adminUrl(s)}`;
+    item.tooltip = `${s.domainPath}\n${t(labels[r.state])}\n${adminUrl(s)}${s.application ? `\n${s.application}` : ""}`;
     item.contextValue = `weblogic.${r.state}`;
     item.iconPath = new vscode.ThemeIcon(
       r.state === "stopped"
@@ -502,6 +503,52 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       throw err;
     }
   }
+  async deploy(s: Server, choose: boolean): Promise<void> {
+    const r = this.runtime(s);
+    if (r.state !== "running" && r.state !== "debugging")
+      throw Error(t("Server is not running."));
+    let file = s.application;
+    if (choose || !file) {
+      const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+      file = (
+        await vscode.window.showOpenDialog({
+          title: t("Select EAR file"),
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          filters: { EAR: ["ear"] },
+          defaultUri: file ? vscode.Uri.file(file) : folder,
+        })
+      )?.[0].fsPath;
+      if (!file) return;
+    }
+    const name = applicationName(file);
+    await fs.access(file).catch(() => {
+      throw Error(`${t("EAR file not found:")} ${file}`);
+    });
+    r.output.show(true);
+    r.output.appendLine(`[WebLogic] ${t("Deploying")} ${name} ← ${file}`);
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `${t("Deploying")} ${name}`,
+      },
+      () =>
+        this.wlst(s, this.javaHome(), {
+          action: "deploy",
+          url: this.t3Url(s),
+          adminName: s.adminName,
+          appName: name,
+          appPath: file,
+        }),
+    );
+    r.output.appendLine(`[WebLogic] ${t("Deployed")} ${name}`);
+    if (s.application !== file) {
+      s.application = file;
+      await this.save();
+    }
+    void vscode.window.showInformationMessage(`${t("Deployed")} ${name}`);
+  }
   async restart(s: Server): Promise<void> {
     const debug = this.runtime(s).debug;
     await this.stop(s);
@@ -571,6 +618,12 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
         case "restart":
           await this.restart(server);
           break;
+        case "deploy":
+          await this.deploy(server, true);
+          break;
+        case "redeploy":
+          await this.deploy(server, false);
+          break;
         case "console":
           await vscode.env.openExternal(vscode.Uri.parse(adminUrl(server)));
           break;
@@ -608,6 +661,8 @@ export function activate(context: vscode.ExtensionContext): void {
     "debug",
     "stop",
     "restart",
+    "deploy",
+    "redeploy",
     "console",
     "log",
     "remove",

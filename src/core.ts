@@ -210,6 +210,14 @@ export function serverState(
       : "starting";
   return listening ? current : "stopped";
 }
+/** 部署名取 EAR 文件名去掉扩展名；只接受 WebLogic 名称允许的字符。 */
+export function applicationName(file: string): string {
+  const base = path.basename(file.replace(/\\/g, "/"));
+  const name = base.replace(/\.ear$/i, "");
+  if (name === base || !/^[\w.-]+$/.test(name))
+    throw Error("Select an .ear file whose name uses letters, digits, '.', '_' or '-'.");
+  return name;
+}
 export function adminUrl(d: Pick<Domain, "host" | "port">): string {
   return `http://${d.host.includes(":") ? `[${d.host}]` : d.host}:${d.port}/console`;
 }
