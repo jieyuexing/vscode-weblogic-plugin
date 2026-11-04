@@ -1,6 +1,6 @@
 {
   "displayName": "WebLogic Server",
-  "description": "Register, create, start and debug local WebLogic development domains.",
+  "description": "Register, create, start, debug and deploy to local WebLogic development domains.",
   "servers": "Servers",
   "javaHome": "JDK home used by WebLogic and WLST. Falls back to JAVA_HOME.",
   "debugPort": "WebLogic DEBUG_PORT value, passed unchanged. WebLogic defaults to 8453.",

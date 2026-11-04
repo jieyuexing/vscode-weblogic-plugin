@@ -1,6 +1,6 @@
 {
   "displayName": "WebLogic Server",
-  "description": "登记、新建、启动和调试本地 WebLogic 开发域。",
+  "description": "登记、新建、启动、调试本地 WebLogic 开发域并部署 EAR。",
   "servers": "服务器",
   "javaHome": "WebLogic 与 WLST 使用的 JDK 目录，缺省使用 JAVA_HOME。",
   "debugPort": "WebLogic 的 DEBUG_PORT，原样传入，WebLogic 默认为 8453。",
