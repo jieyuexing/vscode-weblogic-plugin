@@ -245,6 +245,16 @@ test("Java 调试期间且自动构建关闭时，保存 .java 增量编译工�
     "../src/extension",
   ) as typeof import("../src/extension");
   extension.activate(context as never);
+  // Java 扩展的语言客户端在本扩展之后订阅保存事件，经几个微任务才把 didSave 写入连接。
+  const client = saved.event(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    executed.push(["didSave"]);
+  });
+  const save = async (doc: unknown) => {
+    saved.fire(doc);
+    await new Promise((r) => setTimeout(r));
+  };
   const java = { uri: { fsPath: "/ws/A.java" }, languageId: "java" };
   const jsp = { uri: { fsPath: "/ws/a.jsp" }, languageId: "jsp" };
   const builds = () =>
@@ -253,7 +263,7 @@ test("Java 调试期间且自动构建关闭时，保存 .java 增量编译工�
       .map((c) => c.slice(1));
   try {
     settings = {};
-    saved.fire(java);
+    await save(java);
     assert.deepEqual(builds(), [], "没有调试会话时不编译");
     sessionStarted.fire({
       id: "run",
@@ -261,20 +271,41 @@ test("Java 调试期间且自动构建关闭时，保存 .java 增量编译工�
       configuration: { noDebug: true },
     });
     sessionStarted.fire({ id: "node", type: "node", configuration: {} });
-    saved.fire(java);
+    await save(java);
     assert.deepEqual(builds(), [], "运行模式与非 Java 会话不编译");
     sessionStarted.fire({ id: "debug", type: "java", configuration: {} });
-    saved.fire(jsp);
+    await save(jsp);
+    executed.length = 0;
+    await save(java);
+    assert.deepEqual(
+      executed,
+      [["didSave"], ["java.workspace.compile", false]],
+      "只对 .java 增量编译，且在语言客户端发出 didSave 之后",
+    );
+    executed.length = 0;
     saved.fire(java);
-    assert.deepEqual(builds(), [[false]], "只对 .java 增量编译");
+    saved.fire(java);
+    await new Promise((r) => setTimeout(r));
+    assert.deepEqual(
+      executed.map((c) => c[0]),
+      [
+        "didSave",
+        "didSave",
+        "java.workspace.compile",
+        "java.workspace.compile",
+      ],
+      "连续保存时每次编译都排在已发出的 didSave 之后",
+    );
+    executed.length = 0;
     settings = { enabled: true };
-    saved.fire(java);
-    assert.equal(builds().length, 1, "自动构建开启时由 JDT 自己构建");
+    await save(java);
+    assert.deepEqual(builds(), [], "自动构建开启时由 JDT 自己构建");
     settings = {};
     sessionEnded.fire({ id: "debug" });
-    saved.fire(java);
-    assert.equal(builds().length, 1, "调试会话结束后不再编译");
+    await save(java);
+    assert.deepEqual(builds(), [], "调试会话结束后不再编译");
   } finally {
+    client.dispose();
     for (const d of context.subscriptions) d.dispose();
   }
 });

@@ -1,5 +1,9 @@
 # 更新记录
 
+## 0.2.3
+
+- 修复 Java 调试中保存后增量编译间歇编不进本次改动（没有新 class、不热替换）：编译请求原先抢在 Java 扩展发出 didSave 之前到达 JDT LS，构建可能赶在刷新该文件之前；现在推迟到 didSave 发出之后再编译，连续快速保存时每次都能编进当次改动。
+
 ## 0.2.2
 
 - Java 调试期间（含以调试方式启动后的附加会话），在 `java.autobuild.enabled` 关闭时保存 `.java` 会对工作区做一次增量编译（`java.workspace.compile`，与 Java 调试扩展的热替换按钮同一命令），让 Java 调试扩展按它自己的 `java.debug.settings.hotCodeReplace` 热替换：设为 `auto` 时保存即生效，`manual` 时仍点调试工具栏的热替换按钮；改签名等无法热替换时沿用 Java 调试扩展的原生提示。自动构建开启或没有 Java 调试会话时不做任何事。

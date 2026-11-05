@@ -2,7 +2,7 @@
   "name": "weblogic",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "jieyuexing",
   "license": "MIT",
   "engines": {

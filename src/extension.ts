@@ -680,6 +680,9 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
  * 自动构建关闭时 JDT 不会因保存产生新 class，Java Debugger 也就无从热替换：
  * Java 调试期间保存 .java 后增量编译工作区，热替换仍由 Java Debugger 按它自己的设置完成。
  * 不用按工程编译：它不先编译依赖工程，依赖工程从未编译时只产出带编译错误的 class。
+ * 编译请求推迟到下一个宏任务：Java 扩展的语言客户端在同一保存事件里隔几个微任务才发出 didSave，
+ * 编译请求抢先到达时，JDT LS 的异步构建可能赶在它刷新该文件之前，本次改动就编不进去；
+ * didSave 先到则 JDT LS 处理完它（同步刷新文件）才分派随后的构建请求。
  */
 function buildOnSave(): vscode.Disposable {
   const sessions = new Set<string>();
@@ -695,9 +698,12 @@ function buildOnSave(): vscode.Disposable {
         !vscode.workspace.getConfiguration("java.autobuild").get("enabled")
       )
         // 编译错误由 Java 扩展的问题列表呈现，这里不另行提示。
-        void vscode.commands
-          .executeCommand("java.workspace.compile", false)
-          .then(undefined, () => undefined);
+        setTimeout(
+          () =>
+            void vscode.commands
+              .executeCommand("java.workspace.compile", false)
+              .then(undefined, () => undefined),
+        );
     }),
   );
 }
