@@ -676,11 +676,37 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     }
   }
 }
+/**
+ * 自动构建关闭时 JDT 不会因保存产生新 class，Java Debugger 也就无从热替换：
+ * Java 调试期间保存 .java 后增量编译工作区，热替换仍由 Java Debugger 按它自己的设置完成。
+ * 不用按工程编译：它不先编译依赖工程，依赖工程从未编译时只产出带编译错误的 class。
+ */
+function buildOnSave(): vscode.Disposable {
+  const sessions = new Set<string>();
+  return vscode.Disposable.from(
+    vscode.debug.onDidStartDebugSession((s) => {
+      if (s.type === "java" && !s.configuration.noDebug) sessions.add(s.id);
+    }),
+    vscode.debug.onDidTerminateDebugSession((s) => sessions.delete(s.id)),
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (
+        sessions.size &&
+        doc.languageId === "java" &&
+        !vscode.workspace.getConfiguration("java.autobuild").get("enabled")
+      )
+        // 编译错误由 Java 扩展的问题列表呈现，这里不另行提示。
+        void vscode.commands
+          .executeCommand("java.workspace.compile", false)
+          .then(undefined, () => undefined);
+    }),
+  );
+}
 export function activate(context: vscode.ExtensionContext): void {
   const servers = new Servers(context);
   context.subscriptions.push(
     servers,
     vscode.window.registerTreeDataProvider("weblogic.servers", servers),
+    buildOnSave(),
   );
   for (const command of [
     "register",

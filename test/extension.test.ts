@@ -27,7 +27,11 @@ class EventEmitter<T> {
   private listeners: ((e: T) => void)[] = [];
   event = (listener: (e: T) => void) => {
     this.listeners.push(listener);
-    return { dispose() {} };
+    return {
+      dispose: () => {
+        this.listeners = this.listeners.filter((l) => l !== listener);
+      },
+    };
   };
   fire(e: T) {
     for (const l of this.listeners) l(e);
@@ -37,8 +41,17 @@ class EventEmitter<T> {
   }
 }
 let settings: Record<string, unknown> = {};
+const executed: unknown[][] = [];
+const sessionStarted = new EventEmitter<unknown>();
+const sessionEnded = new EventEmitter<unknown>();
+const saved = new EventEmitter<unknown>();
 const vscode = {
   EventEmitter,
+  Disposable: {
+    from: (...items: { dispose(): void }[]) => ({
+      dispose: () => items.forEach((d) => d.dispose()),
+    }),
+  },
   TreeItem: class {
     constructor(public label: string) {}
   },
@@ -55,6 +68,7 @@ const vscode = {
     getConfiguration: () => ({
       get: (key: string, fallback?: unknown) => settings[key] ?? fallback,
     }),
+    onDidSaveTextDocument: saved.event,
   },
   window: {
     createOutputChannel: () => ({
@@ -83,8 +97,14 @@ const vscode = {
       if (config.internalConsoleOptions !== "neverOpen") panel = "debugConsole";
       return true;
     },
+    onDidStartDebugSession: sessionStarted.event,
+    onDidTerminateDebugSession: sessionEnded.event,
   },
   commands: {
+    executeCommand: async (...args: unknown[]) => {
+      executed.push(args);
+      return 0;
+    },
     registerCommand(id: string, h: (arg?: unknown) => Promise<void>) {
       handlers.set(id, h);
       return { dispose() {} };
@@ -208,3 +228,53 @@ test(
     }
   },
 );
+
+test("Java 调试期间且自动构建关闭时，保存 .java 增量编译工作区", async () => {
+  const context = {
+    subscriptions: [] as { dispose(): void }[],
+    globalState: { get: () => [], update: async () => undefined },
+    secrets: {
+      get: async () => undefined,
+      store: async () => undefined,
+      delete: async () => undefined,
+    },
+    asAbsolutePath: (p: string) => p,
+    globalStorageUri: { fsPath: os.tmpdir() },
+  };
+  const extension = createRequire(__filename)(
+    "../src/extension",
+  ) as typeof import("../src/extension");
+  extension.activate(context as never);
+  const java = { uri: { fsPath: "/ws/A.java" }, languageId: "java" };
+  const jsp = { uri: { fsPath: "/ws/a.jsp" }, languageId: "jsp" };
+  const builds = () =>
+    executed
+      .filter((c) => c[0] === "java.workspace.compile")
+      .map((c) => c.slice(1));
+  try {
+    settings = {};
+    saved.fire(java);
+    assert.deepEqual(builds(), [], "没有调试会话时不编译");
+    sessionStarted.fire({
+      id: "run",
+      type: "java",
+      configuration: { noDebug: true },
+    });
+    sessionStarted.fire({ id: "node", type: "node", configuration: {} });
+    saved.fire(java);
+    assert.deepEqual(builds(), [], "运行模式与非 Java 会话不编译");
+    sessionStarted.fire({ id: "debug", type: "java", configuration: {} });
+    saved.fire(jsp);
+    saved.fire(java);
+    assert.deepEqual(builds(), [[false]], "只对 .java 增量编译");
+    settings = { enabled: true };
+    saved.fire(java);
+    assert.equal(builds().length, 1, "自动构建开启时由 JDT 自己构建");
+    settings = {};
+    sessionEnded.fire({ id: "debug" });
+    saved.fire(java);
+    assert.equal(builds().length, 1, "调试会话结束后不再编译");
+  } finally {
+    for (const d of context.subscriptions) d.dispose();
+  }
+});

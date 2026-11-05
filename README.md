@@ -38,6 +38,8 @@ corepack pnpm run vsce:package
 
 服务器启动后，「部署 EAR…」选择本地 `.ear` 文件（首次定位到工作区内最近修改的 EAR 所在目录，之后用该服务器上次的 EAR），以文件名（去掉 `.ear`）为应用名经 WLST 部署到管理服务器；「重新部署」用该服务器上次选择的 EAR，同一路径执行 `redeploy`，路径变了先卸载再部署。应用以原路径部署，构建覆盖 EAR 后再重新部署即生效。
 
+调试中改 Java 方法体：自动构建（`java.autobuild.enabled`）关闭时，Java 调试会话期间保存 `.java` 会增量编译工作区，之后由 Java 调试扩展按 `java.debug.settings.hotCodeReplace` 热替换（`auto` 保存即生效，`manual` 需点调试工具栏按钮）。工程从未被 JDT 编译过时，第一次编译只建立基线、不替换，再保存一次即生效。
+
 不含热部署、数据源、WLST 编辑器或远程域管理。
 
 ## 当前兼容宿主的布局限制
