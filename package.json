@@ -2,7 +2,7 @@
   "name": "weblogic",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "jieyuexing",
   "license": "MIT",
   "engines": {
@@ -22,7 +22,8 @@
     "lint": "eslint src test scripts",
     "build": "node scripts/build.mjs",
     "test": "node --import tsx --test test/*.test.ts",
-    "vsce:package": "vsce package --no-dependencies --allow-missing-repository"
+    "vsce:package": "vsce package --no-dependencies --allow-missing-repository",
+    "vscode:prepublish": "node scripts/build.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
