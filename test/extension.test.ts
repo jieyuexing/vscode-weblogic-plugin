@@ -6,7 +6,7 @@ import * as os from "node:os";
 import * as net from "node:net";
 import Module, { createRequire } from "node:module";
 
-// 合成宿主：底部面板一次只显示一个视图；树视图被遮住时不重绘（与 Theia TreeWidget 相同）。
+// 合成宿主：底部面板一次只显示一个视图；树视图被遮住时不重绘（与当前兼容宿主相同）。
 let panel = "servers";
 let shown = "";
 let provider:
