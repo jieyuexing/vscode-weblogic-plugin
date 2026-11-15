@@ -151,3 +151,62 @@ test("调试端口同时给出原样字符串与端口号，无效值没有端�
   for (const bad of ["", "abc", "0", "65536", "-1", "8453.5", "host:", ":"])
     assert.deepEqual(debugPort(bad), { value: bad, port: undefined }, bad);
 });
+test("Windows 命令经 cmd /d /s /c 执行，路径与参数各自加引号", () => {
+  const start = startCommand(
+    "C:\\work\\demo domain",
+    "C:\\jdk",
+    false,
+    "8453",
+    "win32",
+    { ComSpec: "C:\\Windows\\System32\\cmd.exe" },
+  );
+  assert.equal(start.file, "C:\\Windows\\System32\\cmd.exe");
+  assert.deepEqual(start.args, [
+    "/d",
+    "/s",
+    "/c",
+    '""C:\\work\\demo domain\\bin\\startWebLogic.cmd" "',
+  ]);
+  assert.equal(start.cwd, "C:\\work\\demo domain");
+  const wlst = wlstCommand(
+    "C:\\Oracle",
+    "C:\\jdk",
+    "C:\\private dir\\operation.py",
+    "win32",
+    {},
+  );
+  assert.equal(wlst.file, "cmd.exe");
+  assert.deepEqual(wlst.args, [
+    "/d",
+    "/s",
+    "/c",
+    '""C:\\Oracle\\oracle_common\\common\\bin\\wlst.cmd" "C:\\private dir\\operation.py""',
+  ]);
+  assert.equal(wlst.env.JAVA_HOME, "C:\\jdk");
+});
+test("Windows 命令拒绝会被 cmd 解释的字符，POSIX 不受影响", () => {
+  for (const c of ['"', "\r", "\n", "%", "&", "|", "<", ">", "^", "!"]) {
+    assert.throws(
+      () =>
+        startCommand(
+          `C:\\work\\bad${c}dir`,
+          "C:\\jdk",
+          false,
+          "8453",
+          "win32",
+          {},
+        ),
+      /Unsafe command path/,
+      JSON.stringify(c),
+    );
+    assert.throws(
+      () => wlstCommand("C:\\Oracle", "C:\\jdk", `C:\\x${c}.py`, "win32", {}),
+      /Unsafe command path/,
+      JSON.stringify(c),
+    );
+  }
+  assert.equal(
+    startCommand("/work/a&b", "/jdk", false, "8453", "darwin", {}).file,
+    "/bin/sh",
+  );
+});
