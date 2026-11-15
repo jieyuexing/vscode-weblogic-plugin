@@ -49,6 +49,8 @@ class StopFailure extends Error {
   }
 }
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+/** 残留多久才清理：WLST 最长跑 180 秒，留足余量，避免删掉另一个窗口正在用的目录。 */
+const STALE_MS = 10 * 60 * 1000;
 const labels: Record<State, string> = {
   stopped: "Stopped",
   starting: "Starting",
@@ -137,6 +139,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
   /**
    * 登记或新建途中宿主被杀时，含口令的 WLST 输入文件会留在存储目录里：
    * 删除没有登记的 UUID 目录与对应口令，以及已登记目录下遗留的 operation-* 临时目录。
+   * 只清理 STALE_MS 之内没有变动过的：另一个窗口可能正在登记或操作。
    */
   private async sweep(): Promise<void> {
     const storage = this.context.globalStorageUri.fsPath;
@@ -147,13 +150,27 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       (await fs.readdir(directory, { withFileTypes: true }).catch(() => []))
         .filter((e) => e.isDirectory())
         .map((e) => e.name);
+    const stale = async (directory: string) => {
+      const entries = await fs.readdir(directory).catch(() => []);
+      const times = await Promise.all(
+        [directory, ...entries.map((e) => path.join(directory, e))].map((p) =>
+          fs.stat(p).then(
+            (s) => s.mtimeMs,
+            () => 0,
+          ),
+        ),
+      );
+      return Date.now() - Math.max(...times) > STALE_MS;
+    };
     for (const name of await folders(storage)) {
       const directory = path.join(storage, name);
       if (registered.has(name)) {
-        for (const sub of await folders(directory))
-          if (sub.startsWith("operation-"))
-            await remove(path.join(directory, sub));
-      } else if (UUID.test(name)) {
+        for (const sub of await folders(directory)) {
+          const operation = path.join(directory, sub);
+          if (sub.startsWith("operation-") && (await stale(operation)))
+            await remove(operation);
+        }
+      } else if (UUID.test(name) && (await stale(directory))) {
         await remove(directory);
         await Promise.resolve(
           this.context.secrets.delete(`password.${name}`),
