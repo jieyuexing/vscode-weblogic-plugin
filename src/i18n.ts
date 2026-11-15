@@ -1,27 +1,16 @@
 import * as vscode from "vscode";
 const zh: Record<string, string> = {
-  Servers: "服务器",
   Stopped: "已停止",
   Starting: "正在启动",
   Started: "已启动",
   "Started in debug mode": "已以调试方式启动",
   Stopping: "正在停止",
-  "Register Existing Domain": "登记已有域",
-  "Create Domain": "新建域",
-  Start: "启动",
-  "Start in Debug Mode": "以调试方式启动",
-  Stop: "停止",
-  Restart: "重新启动",
-  "Open Administration Console": "打开管理控制台",
-  "Deploy EAR": "部署 EAR",
-  Redeploy: "重新部署",
   "Select EAR file": "选择 EAR 文件",
   Deploying: "正在部署",
   Deployed: "已部署",
   "EAR file not found:": "找不到 EAR 文件：",
   "Select an .ear file whose name uses letters, digits, '.', '_' or '-'.":
     "请选择 .ear 文件，文件名只能含字母、数字、“.”、“_”或“-”。",
-  "Show Log": "显示日志",
   Remove: "移除",
   "Select domain directory": "选择域目录",
   "Oracle Home": "Oracle Home",
@@ -39,6 +28,18 @@ const zh: Record<string, string> = {
   "This domain is already registered.": "该域已登记。",
   "The server port is already in use.": "服务器端口已被占用。",
   "The domain directory must not exist.": "域目录必须尚不存在。",
+  "The domain directory must be an absolute path.": "域目录必须是绝对路径。",
+  "See the output:": "请查看输出：",
+  "Unsupported XML declaration": "不支持 DOCTYPE 或 ENTITY 声明。",
+  "Invalid XML": "XML 格式无效。",
+  "Invalid domain XML": "不是有效的域配置 config.xml。",
+  "Administration server not found": "域配置里找不到管理服务器。",
+  "Invalid listen port": "域配置里的监听端口无效。",
+  "Unsafe command path": "路径含有命令行不允许的字符。",
+  "WLST timeout": "WLST 执行超时。",
+  "Shutdown timeout": "等待服务器关闭超时。",
+  "WLST exit": "WLST 退出码",
+  "taskkill exit": "taskkill 退出码",
   "A Java debugger could not attach. Install or enable a Java debugger and attach manually.":
     "Java 调试器未能附加，请安装或启用 Java 调试器后手动附加。",
   "The weblogic.debugPort setting has no valid port number, so the Java debugger was not attached.":
@@ -62,6 +63,12 @@ const zh: Record<string, string> = {
   "Encrypted credentials were created offline; they will be refreshed with storeUserConfig after startup.":
     "已离线生成加密凭据，启动后将用 storeUserConfig 更新。",
 };
+/** 把错误转成界面文字：core 与运行时抛出的已知英文错误在中文界面下翻译，其余原样。 */
+export function describe(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  const exit = /^(WLST|taskkill) exit (.+)$/.exec(text);
+  return exit ? `${t(`${exit[1]} exit`)} ${exit[2]}` : t(text);
+}
 export function t(message: string): string {
   return vscode.env.language.toLowerCase().startsWith("zh")
     ? (zh[message] ?? message)

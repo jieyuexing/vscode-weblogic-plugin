@@ -23,7 +23,7 @@ import {
   terminate,
   credentials,
 } from "./runtime";
-import { t } from "./i18n";
+import { t, describe } from "./i18n";
 interface Runtime {
   state: State;
   child?: ChildProcess;
@@ -64,6 +64,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
   /** 本窗口新增或修改、尚未保存的服务器 id。 */
   private readonly touched = new Set<string>();
   private readonly runtimes = new Map<string, Runtime>();
+  private failedOutput?: vscode.OutputChannel;
   private readonly timer: NodeJS.Timeout;
   private polling = false;
   private disposed = false;
@@ -272,6 +273,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     return { config, home: parseHomes(env).oracleHome };
   }
   async register(): Promise<void> {
+    this.releaseFailedOutput();
     const domainPath = await this.directory("Select domain directory");
     if (!domainPath) return;
     const real = await fs.realpath(domainPath);
@@ -299,7 +301,11 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       username,
       ...config,
     };
-    await this.credentialsFor(s, javaHome, password);
+    try {
+      await this.credentialsFor(s, javaHome, password);
+    } catch (err) {
+      throw this.failed(s, err);
+    }
     this.servers.push(s);
     await this.save(s);
   }
@@ -327,9 +333,11 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     }
   }
   async create(): Promise<void> {
+    this.releaseFailedOutput();
     const domainPath = await this.input("Domain directory");
     if (!domainPath) return;
-    if (!path.isAbsolute(domainPath)) throw Error(t("Domain directory"));
+    if (!path.isAbsolute(domainPath))
+      throw Error(t("The domain directory must be an absolute path."));
     try {
       await fs.access(domainPath);
       throw Error(t("The domain directory must not exist."));
@@ -390,8 +398,23 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       await this.save(s);
     } catch (err) {
       await this.context.secrets.delete(`password.${s.id}`);
-      throw err;
+      throw this.failed(s, err);
     }
+  }
+  /**
+   * 登记或新建失败：打开该服务器的输出供查看，并在报错里写明去哪看。
+   * 尚未登记的服务器不再保留运行时；它的输出通道留到下一次登记或新建开始时释放，用户看完前不消失。
+   */
+  private failed(s: Server, err: unknown): Error {
+    const output = this.runtime(s).output;
+    this.runtimes.delete(s.id);
+    this.failedOutput = output;
+    output.show(true);
+    return Error(`${describe(err)} ${t("See the output:")} WebLogic: ${s.name}`);
+  }
+  private releaseFailedOutput(): void {
+    this.failedOutput?.dispose();
+    this.failedOutput = undefined;
   }
   private async wlst(
     s: Server,
@@ -486,7 +509,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
           if (r.debug && !r.attached) {
             r.attached = true;
             void this.attach(s).catch((err) =>
-              vscode.window.showErrorMessage(String(err)),
+              vscode.window.showErrorMessage(describe(err)),
             );
           }
           void this.wlst(s, this.javaHome(), {
@@ -606,7 +629,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       if (restart) await this.start(s, debug);
     });
     if (!failure) return;
-    const detail = `${t("WLST failed. See the server output.")} ${String(failure.reason)}`;
+    const detail = `${t("WLST failed. See the server output.")} ${describe(failure.reason)}`;
     if (!failure.child) {
       void vscode.window.showErrorMessage(
         `${detail} ${t("No process owned by this extension is available to terminate.")}`,
@@ -786,6 +809,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     this.disposed = true;
     clearInterval(this.timer);
     this.changed.dispose();
+    this.releaseFailedOutput();
     for (const r of this.runtimes.values()) {
       r.child?.unref();
       r.output.dispose();
@@ -849,7 +873,7 @@ export function activate(context: vscode.ExtensionContext): void {
         (server?: Server) =>
           servers
             .execute(command, server)
-            .catch((err) => vscode.window.showErrorMessage(String(err))),
+            .catch((err) => vscode.window.showErrorMessage(describe(err))),
       ),
     );
 }
