@@ -35,6 +35,15 @@ interface Runtime {
   busy: boolean;
   tail: string;
 }
+/** 停止失败：保留当时本窗口拥有的进程，供用户选择强制结束。 */
+class StopFailure extends Error {
+  constructor(
+    readonly reason: unknown,
+    readonly child?: ChildProcess,
+  ) {
+    super(String(reason));
+  }
+}
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const labels: Record<State, string> = {
   stopped: "Stopped",
@@ -524,7 +533,16 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       .replace(/^http:/, "t3:")
       .replace(/\/console$/, "");
   }
-  async stop(s: Server): Promise<void> {
+  /** 等端口不再监听；超时抛错。 */
+  private async awaitDown(s: Server): Promise<void> {
+    const until = Date.now() + 30000;
+    while (await probe(s.host, s.port)) {
+      if (Date.now() > until) throw Error("Shutdown timeout");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  /** 经 WLST 停止；失败时恢复原状态并抛 StopFailure，是否强制结束由调用方在锁外询问。 */
+  private async stop(s: Server): Promise<void> {
     const r = this.runtime(s);
     if (r.state === "stopped") return;
     const previous = r.state;
@@ -536,31 +554,69 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
         url: this.t3Url(s),
         adminName: s.adminName,
       });
-      const until = Date.now() + 30000;
-      while (await probe(s.host, s.port)) {
-        if (Date.now() > until) throw Error("Shutdown timeout");
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      await this.awaitDown(s);
       r.state = "stopped";
       r.running = false;
       this.changed.fire(undefined);
     } catch (err) {
       r.state = previous;
       this.changed.fire(undefined);
-      const choice = await vscode.window.showErrorMessage(
-        `${t("WLST failed. See the server output.")} ${String(err)}`,
-        t("Force Terminate Process"),
-        t("Cancel"),
-      );
-      if (choice === t("Force Terminate Process")) {
-        if (!r.child)
-          throw Error(
-            t("No process owned by this extension is available to terminate."),
-          );
-        await terminate(r.child);
-      }
-      throw err;
+      throw new StopFailure(err, r.child);
     }
+  }
+  /** 结束本扩展拥有的启动进程树，并等端口释放。 */
+  private async forceStop(s: Server, child: ChildProcess): Promise<void> {
+    const r = this.runtime(s);
+    const previous = r.state;
+    r.state = "stopping";
+    this.changed.fire(undefined);
+    try {
+      await terminate(child);
+      await this.awaitDown(s);
+      r.state = "stopped";
+      r.running = false;
+    } catch (err) {
+      r.state = previous;
+      throw err;
+    } finally {
+      this.changed.fire(undefined);
+    }
+  }
+  /**
+   * 停止或重新启动。停止失败时先在锁内收尾，再在锁外只提示一次并询问是否强制结束，
+   * 这样等待用户应答期间不占着该服务器的锁；强制结束成功后重新启动照常继续。
+   */
+  private async stopOrRestart(s: Server, restart: boolean): Promise<void> {
+    const r = this.runtime(s);
+    const debug = r.debug;
+    const failure = await this.locked(r, async () => {
+      try {
+        await this.stop(s);
+      } catch (err) {
+        if (err instanceof StopFailure) return err;
+        throw err;
+      }
+      if (restart) await this.start(s, debug);
+    });
+    if (!failure) return;
+    const detail = `${t("WLST failed. See the server output.")} ${String(failure.reason)}`;
+    if (!failure.child) {
+      void vscode.window.showErrorMessage(
+        `${detail} ${t("No process owned by this extension is available to terminate.")}`,
+      );
+      return;
+    }
+    const choice = await vscode.window.showErrorMessage(
+      detail,
+      t("Force Terminate Process"),
+      t("Cancel"),
+    );
+    if (choice !== t("Force Terminate Process")) return;
+    const child = failure.child;
+    await this.locked(r, async () => {
+      await this.forceStop(s, child);
+      if (restart) await this.start(s, debug);
+    });
   }
   async deploy(s: Server, choose: boolean): Promise<void> {
     const r = this.runtime(s);
@@ -632,11 +688,6 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       ? vscode.Uri.file(folder)
       : vscode.workspace.workspaceFolders?.[0]?.uri;
   }
-  async restart(s: Server): Promise<void> {
-    const debug = this.runtime(s).debug;
-    await this.stop(s);
-    await this.start(s, debug);
-  }
   async remove(s: Server): Promise<void> {
     if (this.runtime(s).state !== "stopped")
       throw Error(t("Stop the server before removing it."));
@@ -673,6 +724,15 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       void vscode.window.showInformationMessage(t("No log file exists yet."));
     }
   }
+  private async locked<T>(r: Runtime, work: () => Promise<T>): Promise<T> {
+    if (r.busy) throw Error(t("Operation already in progress."));
+    r.busy = true;
+    try {
+      return await work();
+    } finally {
+      r.busy = false;
+    }
+  }
   async execute(name: string, s?: Server): Promise<void> {
     await this.swept;
     if (name === "register") {
@@ -685,22 +745,17 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     }
     const server = await this.select(s);
     if (!server) return;
-    const r = this.runtime(server);
-    if (r.busy) throw Error(t("Operation already in progress."));
-    r.busy = true;
-    try {
+    if (name === "stop" || name === "restart") {
+      await this.stopOrRestart(server, name === "restart");
+      return;
+    }
+    await this.locked(this.runtime(server), async () => {
       switch (name) {
         case "start":
           await this.start(server);
           break;
         case "debug":
           await this.start(server, true);
-          break;
-        case "stop":
-          await this.stop(server);
-          break;
-        case "restart":
-          await this.restart(server);
           break;
         case "deploy":
           await this.deploy(server, true);
@@ -718,9 +773,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
           await this.remove(server);
           break;
       }
-    } finally {
-      r.busy = false;
-    }
+    });
   }
   dispose(): void {
     this.disposed = true;
