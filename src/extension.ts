@@ -47,6 +47,10 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<Server | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
   private servers: Server[];
+  /** 本窗口读到或保存过的服务器 id；已存列表里不在其中的项来自其他窗口。 */
+  private readonly known: Set<string>;
+  /** 本窗口新增或修改、尚未保存的服务器 id。 */
+  private readonly touched = new Set<string>();
   private readonly runtimes = new Map<string, Runtime>();
   private readonly timer: NodeJS.Timeout;
   private polling = false;
@@ -55,6 +59,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
   private readonly swept: Promise<void>;
   constructor(private readonly context: vscode.ExtensionContext) {
     this.servers = context.globalState.get<Server[]>("servers", []);
+    this.known = new Set(this.servers.map((s) => s.id));
     for (const s of this.servers) this.runtime(s);
     this.swept = this.sweep();
     this.timer = setInterval(() => {
@@ -158,8 +163,24 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       `${s.adminName}.log`,
     );
   }
-  private async save(): Promise<void> {
-    await this.context.globalState.update("servers", this.servers);
+  /**
+   * 保存前重读已存的列表，按 id 合并：本窗口新增、修改、删除的项以本窗口为准，
+   * 其他窗口新增的项保留，别的窗口已移除而本窗口没动过的项不写回。
+   */
+  private async save(changed?: Server): Promise<void> {
+    if (changed) this.touched.add(changed.id);
+    const stored = this.context.globalState.get<Server[]>("servers", []);
+    const mine = new Map(this.servers.map((s) => [s.id, s]));
+    const storedIds = new Set(stored.map((s) => s.id));
+    const merged = stored
+      .filter((s) => mine.has(s.id) || !this.known.has(s.id))
+      .map((s) => mine.get(s.id) ?? s);
+    for (const s of this.servers)
+      if (!storedIds.has(s.id) && this.touched.has(s.id)) merged.push(s);
+    await this.context.globalState.update("servers", merged);
+    this.servers = merged;
+    for (const s of merged) this.known.add(s.id);
+    this.touched.clear();
     this.changed.fire(undefined);
   }
   async select(s?: Server): Promise<Server | undefined> {
@@ -268,7 +289,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     };
     await this.credentialsFor(s, javaHome, password);
     this.servers.push(s);
-    await this.save();
+    await this.save(s);
   }
   private async credentialsFor(
     s: Server,
@@ -354,7 +375,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       );
       Object.assign(s, (await this.domainInfo(domainPath)).config);
       this.servers.push(s);
-      await this.save();
+      await this.save(s);
     } catch (err) {
       await this.context.secrets.delete(`password.${s.id}`);
       throw err;
@@ -585,7 +606,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     r.output.appendLine(`[WebLogic] ${t("Deployed")} ${name}`);
     if (s.application !== file) {
       s.application = file;
-      await this.save();
+      await this.save(s);
     }
     void vscode.window.showInformationMessage(`${t("Deployed")} ${name}`);
   }
