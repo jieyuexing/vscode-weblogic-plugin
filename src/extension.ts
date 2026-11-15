@@ -21,6 +21,7 @@ import {
   pipeOutput,
   runWlst,
   terminate,
+  exited,
   credentials,
 } from "./runtime";
 import { t, describe } from "./i18n";
@@ -594,14 +595,17 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       throw new StopFailure(err, r.child);
     }
   }
-  /** 结束本扩展拥有的启动进程树，并等端口释放。 */
+  /** 结束本扩展拥有的启动进程树，等进程退出且端口释放。 */
   private async forceStop(s: Server, child: ChildProcess): Promise<void> {
     const r = this.runtime(s);
+    // 询问期间用户可能已另行停止并重新启动，此时不再动手。
+    if (r.child !== child) return;
     const previous = r.state;
     r.state = "stopping";
     this.changed.fire(undefined);
     try {
       await terminate(child);
+      await exited(child, 30000);
       await this.awaitDown(s);
       r.state = "stopped";
       r.running = false;

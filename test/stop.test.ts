@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -151,6 +152,41 @@ test(
       dispose(restored);
     } finally {
       listener.close();
+      await close();
+    }
+  },
+);
+
+test(
+  "强制结束要等该进程真正退出，而不只是端口没有监听",
+  { skip: process.platform === "win32" },
+  async () => {
+    const { syn, win, prompts, close } = await setup();
+    try {
+      // 服务器还在启动、端口没开；收到 TERM 后一秒才退出。
+      await fs.writeFile(
+        path.join(syn.domain, "bin/startWebLogic.sh"),
+        `echo $$ > ${JSON.stringify(syn.pidFile)}\ntrap 'sleep 1; exit 0' TERM\nwhile true; do sleep 0.1; done\n`,
+      );
+      await win.handlers.get("weblogic.start")!(syn.server);
+      await until(
+        () => win.shown === `Starting · 127.0.0.1:${syn.port}`,
+        `正在启动：${win.shown}`,
+      );
+      const pid = await until(
+        () => existsSync(syn.pidFile),
+        "启动脚本已记下 pid",
+      ).then(() => syn.pid());
+      const stopping = win.handlers.get("weblogic.stop")!(syn.server);
+      await until(() => prompts.length === 1, "出现强制结束的提问");
+      prompts[0].answer("Force Terminate Process");
+      await stopping;
+      assert.throws(
+        () => process.kill(pid, 0),
+        /ESRCH/,
+        "命令返回时进程已退出",
+      );
+    } finally {
       await close();
     }
   },

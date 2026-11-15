@@ -142,3 +142,15 @@ export async function terminate(child: ChildProcess): Promise<void> {
     }
   }
 }
+/** 等进程退出；已退出时立即返回，超时抛错。 */
+export function exited(child: ChildProcess, ms: number): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null)
+    return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Error("Shutdown timeout")), ms);
+    child.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
