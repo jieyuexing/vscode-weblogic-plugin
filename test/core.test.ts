@@ -66,6 +66,8 @@ test("命令不含口令；debug 端口原样传递，普通启动禁用 debug",
         debugFlag: "true",
         WLS_PASSWORD: "synthetic-password",
         ACCESS_TOKEN: "synthetic-token",
+        SERVICE_API_KEY: "synthetic-key",
+        DB_CREDENTIAL: "synthetic-credential",
       },
     );
     assert.equal(c.env.DEBUG_PORT, "127.0.0.1:8453");
@@ -82,7 +84,12 @@ test("命令不含口令；debug 端口原样传递，普通启动禁用 debug",
       {},
     );
     assert.ok(!JSON.stringify([c, w]).includes("synthetic-password"));
-    assert.ok(!Object.keys(c.env).some((k) => /pass|secret/i.test(k)));
+    assert.deepEqual(
+      Object.keys(c.env).filter((k) =>
+        /pass|secret|token|api_key|credential/i.test(k),
+      ),
+      [],
+    );
     assert.equal(c.cwd, "/opt/demo domain");
   }
 });
