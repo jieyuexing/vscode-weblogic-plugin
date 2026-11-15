@@ -135,6 +135,7 @@
         "weblogic.javaHome": {
           "type": "string",
           "default": "",
+          "scope": "machine-overridable",
           "description": "%javaHome%"
         },
         "weblogic.debugPort": {
