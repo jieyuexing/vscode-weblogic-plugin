@@ -10,7 +10,7 @@
 
 | 触发条件 | 命令 | 合同文档 |
 | --- | --- | --- |
-| 类型、风格、单元回归 | `corepack pnpm run check-types`、`corepack pnpm run lint`、`corepack pnpm test` | `README.md`、`test/core.test.ts` |
+| 类型、风格、单元回归 | `corepack pnpm run check-types`、`corepack pnpm run lint`、`corepack pnpm test` | `README.md`、`test/*.test.ts`（合成宿主在 `test/host.ts`） |
 | 构建与 VSIX | `corepack pnpm run build`、`corepack pnpm run vsce:package` | `README.md` |
 | WLST 凭据、建域、停止 | 扩展服务器视图的对应命令 | `README.md`「凭据与生命周期」；`resources/wlst.py` |
 

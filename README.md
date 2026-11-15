@@ -34,7 +34,7 @@ corepack pnpm run build
 corepack pnpm run vsce:package
 ```
 
-产物为 `weblogic-<版本>.vsix`。单元测试覆盖合成域解析、平台命令、环境变量、日志脱敏、启动状态与服务器视图刷新（合成宿主）。构建、fixture 和打包不替代真实编辑器加载、WebLogic 启停及 Java 断点验证。
+产物为 `weblogic-<版本>.vsix`。单元测试覆盖合成域解析、平台命令、环境变量、日志脱敏、凭据文件权限、启动与停止（含停止失败）、登记与移除、启动后恢复、多窗口合并与服务器视图刷新（合成宿主，见 `test/host.ts`）；`resources/wlst.py` 只做语法解析（本机有 python3 时，按 Python 3 文法），并与扩展侧的 Properties 转义对照。构建、fixture 和打包不替代真实编辑器加载、WebLogic 启停及 Java 断点验证。
 
 服务器启动后，「部署 EAR…」选择本地 `.ear` 文件（首次定位到工作区内最近修改的 EAR 所在目录，之后用该服务器上次的 EAR），以文件名（去掉 `.ear`）为应用名经 WLST 部署到管理服务器；「重新部署」用该服务器上次选择的 EAR，同一路径执行 `redeploy`，路径变了先卸载再部署。应用以原路径部署，构建覆盖 EAR 后再重新部署即生效。
 
