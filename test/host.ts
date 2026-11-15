@@ -342,3 +342,37 @@ export async function seedCredentials(
   for (const f of ["user.config", "user.key"])
     await fs.writeFile(path.join(storage, id, f), "");
 }
+
+/** 合成安装目录：含新建域模板占位文件与合成 WLST（默认生成两份加密凭据并成功退出）。 */
+export async function syntheticOracle(
+  root: string,
+  wlst = `d="$(dirname "$1")/.."\n: > "$d/user.config"; : > "$d/user.key"\nexit 0\n`,
+): Promise<string> {
+  const oracle = path.join(root, "oracle");
+  const bin = path.join(oracle, "oracle_common/common/bin");
+  const template = path.join(oracle, "wlserver/common/templates/wls");
+  await fs.mkdir(bin, { recursive: true });
+  await fs.mkdir(template, { recursive: true });
+  await fs.writeFile(path.join(template, "wls.jar"), "");
+  await fs.writeFile(path.join(bin, "wlst.sh"), wlst);
+  await fs.mkdir(path.join(root, "resources"), { recursive: true });
+  await fs.writeFile(path.join(root, "resources/wlst.py"), "");
+  return oracle;
+}
+/** 合成已有域：只含登记需要读取的 config.xml 与 setDomainEnv.sh。 */
+export async function syntheticExistingDomain(
+  domain: string,
+  oracle: string,
+  port = 7001,
+): Promise<void> {
+  await fs.mkdir(path.join(domain, "config"), { recursive: true });
+  await fs.mkdir(path.join(domain, "bin"), { recursive: true });
+  await fs.writeFile(
+    path.join(domain, "config/config.xml"),
+    `<domain><admin-server-name>AdminServer</admin-server-name><server><name>AdminServer</name><listen-port>${port}</listen-port></server></domain>`,
+  );
+  await fs.writeFile(
+    path.join(domain, "bin/setDomainEnv.sh"),
+    `ORACLE_HOME="${oracle}"\n`,
+  );
+}

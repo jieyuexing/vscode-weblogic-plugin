@@ -243,7 +243,10 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     if (!domainPath) return;
     const real = await fs.realpath(domainPath);
     for (const s of this.servers)
-      if ((await fs.realpath(s.domainPath)) === real)
+      // 已登记的目录被移走时无法解析，回退到登记的原路径比较，不中断登记。
+      if (
+        (await fs.realpath(s.domainPath).catch(() => s.domainPath)) === real
+      )
         throw Error(t("This domain is already registered."));
     const { config, home } = await this.domainInfo(domainPath);
     const oracleHome = await this.oracleHome(home);
