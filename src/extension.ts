@@ -35,6 +35,7 @@ interface Runtime {
   busy: boolean;
   tail: string;
 }
+const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const labels: Record<State, string> = {
   stopped: "Stopped",
   starting: "Starting",
@@ -50,9 +51,12 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
   private readonly timer: NodeJS.Timeout;
   private polling = false;
   private disposed = false;
+  /** 激活时的存储清理；命令等它结束后才执行，清理不会碰到正在使用的临时目录。 */
+  private readonly swept: Promise<void>;
   constructor(private readonly context: vscode.ExtensionContext) {
     this.servers = context.globalState.get<Server[]>("servers", []);
     for (const s of this.servers) this.runtime(s);
+    this.swept = this.sweep();
     this.timer = setInterval(() => {
       void this.poll().catch(() => undefined);
     }, 1000);
@@ -108,6 +112,33 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
         }
       } catch {
         /* 尚无日志的登记保持已停止。 */
+      }
+    }
+  }
+  /**
+   * 登记或新建途中宿主被杀时，含口令的 WLST 输入文件会留在存储目录里：
+   * 删除没有登记的 UUID 目录与对应口令，以及已登记目录下遗留的 operation-* 临时目录。
+   */
+  private async sweep(): Promise<void> {
+    const storage = this.context.globalStorageUri.fsPath;
+    const registered = new Set(this.servers.map((s) => s.id));
+    const remove = (target: string) =>
+      fs.rm(target, { recursive: true, force: true }).catch(() => undefined);
+    const folders = async (directory: string) =>
+      (await fs.readdir(directory, { withFileTypes: true }).catch(() => []))
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+    for (const name of await folders(storage)) {
+      const directory = path.join(storage, name);
+      if (registered.has(name)) {
+        for (const sub of await folders(directory))
+          if (sub.startsWith("operation-"))
+            await remove(path.join(directory, sub));
+      } else if (UUID.test(name)) {
+        await remove(directory);
+        await Promise.resolve(
+          this.context.secrets.delete(`password.${name}`),
+        ).catch(() => undefined);
       }
     }
   }
@@ -619,6 +650,7 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     }
   }
   async execute(name: string, s?: Server): Promise<void> {
+    await this.swept;
     if (name === "register") {
       await this.register();
       return;
