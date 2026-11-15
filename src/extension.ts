@@ -11,6 +11,7 @@ import {
   adminUrl,
   applicationName,
   newestEarFolder,
+  debugPort,
   State,
 } from "./core";
 import {
@@ -30,6 +31,8 @@ interface Runtime {
   running: boolean;
   debug: boolean;
   attached: boolean;
+  /** 启动时按设置解析出的调试器附加端口；设置无效时为 undefined。 */
+  debugPort?: number;
   generation: number;
   startedAt: number;
   busy: boolean;
@@ -413,15 +416,16 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
       throw Error(t("The server port is already in use."));
     const javaHome = this.javaHome();
     const password = await this.context.secrets.get(`password.${s.id}`);
-    const port = String(
+    const port = debugPort(
       vscode.workspace
         .getConfiguration("weblogic")
         .get<string | number>("debugPort", "8453"),
     );
-    const command = startCommand(s.domainPath, javaHome, debug, port);
+    const command = startCommand(s.domainPath, javaHome, debug, port.value);
     r.state = "starting";
     r.running = false;
     r.debug = debug;
+    r.debugPort = port.port;
     r.attached = false;
     r.tail = "";
     r.startedAt = Date.now();
@@ -506,12 +510,15 @@ class Servers implements vscode.TreeDataProvider<Server>, vscode.Disposable {
     }
   }
   private async attach(s: Server): Promise<void> {
-    const value = String(
-      vscode.workspace
-        .getConfiguration("weblogic")
-        .get<string | number>("debugPort", "8453"),
-    );
-    const port = Number(value.split(":").at(-1));
+    const port = this.runtime(s).debugPort;
+    if (port === undefined) {
+      void vscode.window.showWarningMessage(
+        t(
+          "The weblogic.debugPort setting has no valid port number, so the Java debugger was not attached.",
+        ),
+      );
+      return;
+    }
     const success = await vscode.debug.startDebugging(undefined, {
       type: "java",
       request: "attach",

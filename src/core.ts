@@ -228,6 +228,19 @@ export function newestEarFolder(
   );
   return newest && path.dirname(newest.path);
 }
+/**
+ * 调试端口设置：原样字符串交给 DEBUG_PORT；调试器附加用的端口号取最后一个冒号之后的部分，
+ * 不是 1 到 65535 的整数时为 undefined。
+ */
+export function debugPort(setting: string | number): {
+  value: string;
+  port?: number;
+} {
+  const value = String(setting);
+  const text = value.split(":").at(-1)!.trim();
+  const port = /^\d{1,5}$/.test(text) ? Number(text) : 0;
+  return { value, port: port >= 1 && port <= 65535 ? port : undefined };
+}
 export function adminUrl(d: Pick<Domain, "host" | "port">): string {
   return `http://${d.host.includes(":") ? `[${d.host}]` : d.host}:${d.port}/console`;
 }

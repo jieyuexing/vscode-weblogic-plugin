@@ -41,6 +41,8 @@ const zh: Record<string, string> = {
   "The domain directory must not exist.": "域目录必须尚不存在。",
   "A Java debugger could not attach. Install or enable a Java debugger and attach manually.":
     "Java 调试器未能附加，请安装或启用 Java 调试器后手动附加。",
+  "The weblogic.debugPort setting has no valid port number, so the Java debugger was not attached.":
+    "weblogic.debugPort 设置里没有有效的端口号，未附加 Java 调试器。",
   "The startup process exited before RUNNING. See the server output.":
     "启动进程在进入 RUNNING 前退出，请查看服务器输出。",
   "The server did not reach RUNNING within five minutes. See the server output.":

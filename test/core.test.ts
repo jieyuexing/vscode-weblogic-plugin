@@ -11,6 +11,7 @@ import {
   newestEarFolder,
   Redactor,
   encodeProperties,
+  debugPort,
 } from "../src/core";
 const xml = `<domain xmlns="http://xmlns.oracle.com/weblogic/domain"><name>demo_domain</name><admin-server-name>Console</admin-server-name><server><name>Worker</name><listen-port>8001</listen-port></server><server><name>Console</name><listen-address></listen-address><listen-port>7101</listen-port></server></domain>`;
 test("管理服务器选择与默认值，不误取受管服务器", () => {
@@ -117,7 +118,10 @@ test("私密 Properties 数据转义兼容旧版 WLST 和 Unicode", () => {
   );
 });
 test("部署名取 EAR 文件名，拒绝非 EAR 与非法字符", () => {
-  assert.equal(applicationName("/work/SimWebEAR/build/libs/SimWebEAR.ear"), "SimWebEAR");
+  assert.equal(
+    applicationName("/work/SimWebEAR/build/libs/SimWebEAR.ear"),
+    "SimWebEAR",
+  );
   assert.equal(applicationName("C:\\work\\demo-1.0.EAR"), "demo-1.0");
   assert.throws(() => applicationName("/work/demo.war"));
   assert.throws(() => applicationName("/work/demo app.ear"));
@@ -132,4 +136,18 @@ test("首次部署默认目录取最近修改的 EAR 所在目录，没有 EAR �
     "/ws/SimWebEAR/build/libs",
   );
   assert.equal(newestEarFolder([]), undefined);
+});
+test("调试端口同时给出原样字符串与端口号，无效值没有端口号", () => {
+  assert.deepEqual(debugPort("8453"), { value: "8453", port: 8453 });
+  assert.deepEqual(debugPort(9000), { value: "9000", port: 9000 });
+  assert.deepEqual(debugPort("127.0.0.1:8453"), {
+    value: "127.0.0.1:8453",
+    port: 8453,
+  });
+  assert.deepEqual(debugPort("[::1]:8454"), {
+    value: "[::1]:8454",
+    port: 8454,
+  });
+  for (const bad of ["", "abc", "0", "65536", "-1", "8453.5", "host:", ":"])
+    assert.deepEqual(debugPort(bad), { value: bad, port: undefined }, bad);
 });

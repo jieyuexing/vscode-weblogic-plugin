@@ -52,6 +52,11 @@ test(
       await step("weblogic.stop", "Stopped");
       await step("weblogic.debug", "Started in debug mode");
       assert.equal(host.debugConfigs.length, 1);
+      assert.equal(
+        host.debugConfigs[0].port,
+        Number(host.settings.debugPort),
+        "调试器附加到设置里的端口",
+      );
       await step("weblogic.restart", "Started in debug mode");
       process.kill(await syn.pid(), "SIGTERM");
       await step(undefined, "Stopped");
@@ -173,3 +178,30 @@ test("Java 调试期间且自动构建关闭时，保存 .java 增量编译工�
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+test(
+  "调试端口设置无效时服务器照常启动，附加前提示设置名且不启动调试器",
+  { skip: process.platform === "win32" },
+  async () => {
+    reset();
+    const syn = await syntheticDomain(
+      await fs.mkdtemp(path.join(os.tmpdir(), "weblogic-port-")),
+    );
+    host.settings = { javaHome: syn.root, debugPort: "abc" };
+    const win = activate(makeContext(syn.root, { servers: [syn.server] }));
+    await seedCredentials(path.join(syn.root, "storage"), syn.server.id);
+    try {
+      await win.handlers.get("weblogic.debug")!(syn.server);
+      await until(
+        () => win.shown === `Started in debug mode · 127.0.0.1:${syn.port}`,
+        `启动完成：${win.shown}`,
+      );
+      await until(() => host.warnings.length > 0, "出现调试端口提示");
+      assert.ok(host.warnings[0].includes("weblogic.debugPort"));
+      assert.deepEqual(host.debugConfigs, []);
+    } finally {
+      dispose(win);
+      await syn.cleanup();
+    }
+  },
+);
